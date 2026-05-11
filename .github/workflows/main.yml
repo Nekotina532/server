@@ -1,4 +1,4 @@
-name: VPS ETERNA - Lanzador Simp
+name: VPS ETERNA - Lanzador Simple
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
   actions: write
 
 jobs:
-  vps-sesion:
+  vps-session:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
