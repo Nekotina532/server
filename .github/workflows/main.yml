@@ -26,7 +26,7 @@ jobs:
 
       - name: "3. Instalar Servidor (si no existe)"
         run: |
-          if[ ! -f "SRV/server/start.sh" ]; then
+          if [ ! -f "SRV/server/start.sh" ]; then
             echo "Instalando servidor desde cero..."
             rm -rf SRV && mkdir -p SRV/server
             cd SRV/server
