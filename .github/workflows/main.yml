@@ -26,7 +26,7 @@ jobs:
 
       - name: "3. Instalar Servidor (si no existe)"
         run: |
-          if [ ! -f "SRV/server/start.sh" ]; then
+          if[ ! -f "SRV/server/start.sh" ]; then
             echo "Instalando servidor desde cero..."
             rm -rf SRV && mkdir -p SRV/server
             cd SRV/server
@@ -90,11 +90,16 @@ jobs:
           docker stop playit || true
           echo "SISTEMA APAGADO."
 
-      - name: "8. Guardar y Relevar"
+      - name: "8. Guardar en la Nube (Cache)"
         if: always()
         uses: actions/cache/save@v4
         with:
           path: SRV
           key: srv-storage-${{ github.run_id }}
+
+      - name: "9. Lanzar Relevo (Bucle)"
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh workflow run "main.yml" --ref main --repo $GITHUB_REPOSITORY
+          gh workflow run "main.yml" --ref main
