@@ -1,0 +1,100 @@
+name: VPS ETERNA - Lanzador Simp
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  vps-sesion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: "1. Preparar Entorno"
+        uses: actions/checkout@v4
+
+      - name: "2. Recuperar Cache"
+        uses: actions/cache/restore@v4
+        with:
+          path: SRV
+          key: srv-storage-${{ github.run_id }}
+          restore-keys: |
+            srv-storage-
+
+      - name: "3. Instalar Servidor (si no existe)"
+        run: |
+          if [ ! -f "SRV/server/start.sh" ]; then
+            echo "Instalando servidor desde cero..."
+            rm -rf SRV && mkdir -p SRV/server
+            cd SRV/server
+            git init
+            git remote add origin https://github.com/Nekotina532/server.git
+            git fetch origin
+            git checkout origin/main -- 0.15.10.zip
+            unzip 0.15.10.zip && rm 0.15.10.zip
+          fi
+
+      - name: "4. Encontrar y preparar todo"
+        id: setup
+        run: |
+          SERVER_PATH=$(find $GITHUB_WORKSPACE/SRV -name "start.sh" -exec dirname {} \;)
+          echo "SERVER_PATH=$SERVER_PATH" >> $GITHUB_ENV
+          echo "Servidor encontrado en: $SERVER_PATH"
+          chmod +x $SERVER_PATH/start.sh
+          
+          pip install flask psutil requests werkzeug -q
+          touch /tmp/mc_commands /tmp/mc_output.log
+
+      - name: "5. Conectar Redes (Playit y Tailscale)"
+        run: |
+          docker run -d --name=playit --net=host -e SECRET_KEY=2b84e6108b2845f44bb92c8f57cfd7ee732b522eca08c6c7778bf59794a4e3b5 ghcr.io/playit-cloud/playit-agent:0.17
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up --authkey=tskey-auth-kfGJ2qTW4p11CNTRL-hsTd6aRzZycxP7kURPtbycqKRWoNf6dZT --hostname=host --ssh
+          sleep 5
+          TS_IP=$(tailscale ip -4)
+          echo "TS_IP=$TS_IP" >> $GITHUB_ENV
+
+      - name: "6. INICIAR TODO Y NO TOCAR LOS COJONES"
+        run: |
+          echo "Iniciando panel web..."
+          python3 panel.py > /tmp/panel.log 2>&1 &
+          sleep 3
+          
+          echo "Iniciando servidor de Minecraft (UNA SOLA VEZ)..."
+          cd "${{ env.SERVER_PATH }}"
+          (tail -f /tmp/mc_commands) | (bash start.sh) > /tmp/mc_output.log 2>&1 &
+          sleep 5
+
+          echo "=============================================="
+          echo "SISTEMA ARRANCADO. CERO VIGILANCIA EN YAML."
+          echo "PANEL: http://$TS_IP:8080"
+          echo "=============================================="
+
+          # Se queda quieto como una estatua durante casi 6 horas
+          sleep 20700
+          
+          echo "Tiempo cumplido. Apagando."
+
+      - name: "7. APAGADO FINAL"
+        if: always()
+        run: |
+          echo "APAGANDO TODO..."
+          echo "stop" > /tmp/mc_commands
+          sleep 5
+          pkill -9 -f "php" || true
+          pkill -9 -f "tail" || true
+          pkill -f "panel.py" || true
+          docker stop playit || true
+          echo "SISTEMA APAGADO."
+
+      - name: "8. Guardar y Relevar"
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: SRV
+          key: srv-storage-${{ github.run_id }}
+        run: |
+          gh workflow run "main.yml" --ref main --repo $GITHUB_REPOSITORY
