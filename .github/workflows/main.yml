@@ -31,7 +31,7 @@ jobs:
             rm -rf SRV && mkdir -p SRV/server
             cd SRV/server
             git init
-            git remote add origin https://github.com/LastenFor/server.git
+            git remote add origin https://github.com/Nekotina532/server.git
             git fetch origin
             git checkout origin/main -- 0.15.10.zip
             unzip 0.15.10.zip && rm 0.15.10.zip
